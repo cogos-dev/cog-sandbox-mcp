@@ -16,5 +16,6 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("COG_SANDBOX_ROOT", str(tmp_path))
     monkeypatch.setenv("COG_SANDBOX_INITIAL_AUTH", "ws")
     from cog_sandbox_mcp import sandbox
+
     sandbox.initialize_auth()
     return ws

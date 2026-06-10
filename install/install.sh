@@ -33,7 +33,7 @@ USAGE
     esac
 done
 
-IMAGE_TAG="cog-sandbox-mcp:0.1"
+IMAGE_TAG="cog-sandbox-mcp:0.4.1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 

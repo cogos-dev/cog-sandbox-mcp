@@ -135,6 +135,24 @@ def test_tree_at_root_covers_workspaces(workspace: Path) -> None:
     assert "ws/" in out
 
 
+def test_tree_does_not_follow_symlink_outside_sandbox(
+    workspace: Path, tmp_path: Path
+) -> None:
+    """A symlink inside the workspace pointing outside the sandbox root must be
+    silently skipped by tree() — not enumerated, not errored."""
+    # Create a directory outside the sandbox root with a secret file
+    outside = tmp_path.parent / "outside_secret"
+    outside.mkdir(exist_ok=True)
+    (outside / "secret.txt").write_text("private data")
+    # Place a symlink inside the workspace pointing to that outside directory
+    link = workspace / "escape_link"
+    link.symlink_to(outside)
+    out = fs.tree("ws", max_depth=3)
+    assert "escape_link" not in out
+    assert "secret.txt" not in out
+    assert "private data" not in out
+
+
 # ---------- authorization tools ----------
 
 
@@ -224,12 +242,14 @@ def test_hash_file_returns_virtual_path(workspace: Path) -> None:
 def test_cogos_bridge_disabled_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("COG_OS_BASE_URL", raising=False)
     from cog_sandbox_mcp.tools import cogos_bridge
+
     assert cogos_bridge.is_bridge_enabled() is False
 
 
 def test_cogos_bridge_enabled_with_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COG_OS_BASE_URL", "http://localhost:5100")
     from cog_sandbox_mcp.tools import cogos_bridge
+
     assert cogos_bridge.is_bridge_enabled() is True
 
 
@@ -241,6 +261,7 @@ def test_cogos_status_reports_unreachable_cleanly(
     # safe probe they can call without fear of unhandled exceptions.
     monkeypatch.setenv("COG_OS_BASE_URL", "http://127.0.0.1:1")  # closed port
     from cog_sandbox_mcp.tools import cogos_bridge
+
     result = cogos_bridge.cogos_status()
     assert result["reachable"] is False
     assert "error" in result
@@ -259,6 +280,7 @@ def test_cogos_bridge_not_registered_when_disabled(
     sandbox.initialize_auth()
     from cog_sandbox_mcp.server import build_server
     import asyncio
+
     tools = asyncio.run(build_server().list_tools())
     names = [t.name for t in tools]
     assert "cogos_status" not in names
@@ -275,6 +297,7 @@ def test_cogos_bridge_registered_when_enabled(
     sandbox.initialize_auth()
     from cog_sandbox_mcp.server import build_server
     import asyncio
+
     tools = asyncio.run(build_server().list_tools())
     names = [t.name for t in tools]
     assert "cogos_status" in names
@@ -294,6 +317,7 @@ def test_cogos_emit_not_registered_when_disabled(
     sandbox.initialize_auth()
     from cog_sandbox_mcp.server import build_server
     import asyncio
+
     tools = asyncio.run(build_server().list_tools())
     names = [t.name for t in tools]
     assert "cogos_emit" not in names
@@ -379,6 +403,7 @@ def test_cogos_events_read_not_registered_when_disabled(
     sandbox.initialize_auth()
     from cog_sandbox_mcp.server import build_server
     import asyncio
+
     tools = asyncio.run(build_server().list_tools())
     names = [t.name for t in tools]
     assert "cogos_events_read" not in names
@@ -401,8 +426,18 @@ def test_cogos_events_read_gets_with_filters(
             captured["path"] = u.path
             captured["query"] = parse_qs(u.query)
             events = [
-                {"seq": 1, "type": "message", "from": "a", "payload": {"content": "one"}},
-                {"seq": 2, "type": "message", "from": "a", "payload": {"content": "two"}},
+                {
+                    "seq": 1,
+                    "type": "message",
+                    "from": "a",
+                    "payload": {"content": "one"},
+                },
+                {
+                    "seq": 2,
+                    "type": "message",
+                    "from": "a",
+                    "payload": {"content": "two"},
+                },
             ]
             body = json.dumps(events).encode()
             self.send_response(200)
@@ -472,7 +507,9 @@ def test_cogos_emit_then_read_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802
             if self.path != "/v1/bus/send":
-                self.send_response(404); self.end_headers(); return
+                self.send_response(404)
+                self.end_headers()
+                return
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             seq_counter["n"] += 1
@@ -495,8 +532,14 @@ def test_cogos_emit_then_read_roundtrip(monkeypatch: pytest.MonkeyPatch) -> None
             u = urlparse(self.path)
             parts = u.path.split("/")
             # /v1/bus/<id>/events
-            if len(parts) != 5 or parts[:3] != ["", "v1", "bus"] or parts[4] != "events":
-                self.send_response(404); self.end_headers(); return
+            if (
+                len(parts) != 5
+                or parts[:3] != ["", "v1", "bus"]
+                or parts[4] != "events"
+            ):
+                self.send_response(404)
+                self.end_headers()
+                return
             bus_id = parts[3]
             events = list(buses.get(bus_id, []))
             body = json.dumps(events).encode()
@@ -549,6 +592,7 @@ def test_cogos_resolve_not_registered_when_disabled(
     sandbox.initialize_auth()
     from cog_sandbox_mcp.server import build_server
     import asyncio
+
     tools = asyncio.run(build_server().list_tools())
     names = [t.name for t in tools]
     assert "cogos_resolve" not in names
@@ -576,9 +620,12 @@ def _start_resolve_mock(
             captured["query"] = parse_qs(u.query)
             captured["raw_query"] = u.query
             if status >= 400:
-                body = raw_body or json.dumps(
-                    {"error": {"message": "bogus URI", "type": "not_found"}}
-                ).encode()
+                body = (
+                    raw_body
+                    or json.dumps(
+                        {"error": {"message": "bogus URI", "type": "not_found"}}
+                    ).encode()
+                )
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -612,7 +659,9 @@ def test_cogos_resolve_decodes_base64_to_utf8(
         {"uri": "cog://adr/085", "content": encoded, "etag": "abc123"}
     )
     try:
-        monkeypatch.setenv("COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}")
+        monkeypatch.setenv(
+            "COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}"
+        )
         from cog_sandbox_mcp.tools import cogos_bridge
 
         result = cogos_bridge.cogos_resolve("cog://adr/085")
@@ -635,11 +684,11 @@ def test_cogos_resolve_no_decode_preserves_base64(
     import base64 as b64
 
     encoded = b64.b64encode(b"binary-bytes-here").decode("ascii")
-    server, _ = _start_resolve_mock(
-        {"uri": "cog://blob/abc", "content": encoded}
-    )
+    server, _ = _start_resolve_mock({"uri": "cog://blob/abc", "content": encoded})
     try:
-        monkeypatch.setenv("COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}")
+        monkeypatch.setenv(
+            "COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}"
+        )
         from cog_sandbox_mcp.tools import cogos_bridge
 
         result = cogos_bridge.cogos_resolve("cog://blob/abc", decode=False)
@@ -658,12 +707,12 @@ def test_cogos_resolve_falls_back_on_non_utf8_content(
     import base64 as b64
 
     # Random binary bytes that aren't valid UTF-8.
-    encoded = b64.b64encode(bytes([0xff, 0xfe, 0x00, 0x80])).decode("ascii")
-    server, _ = _start_resolve_mock(
-        {"uri": "cog://blob/xyz", "content": encoded}
-    )
+    encoded = b64.b64encode(bytes([0xFF, 0xFE, 0x00, 0x80])).decode("ascii")
+    server, _ = _start_resolve_mock({"uri": "cog://blob/xyz", "content": encoded})
     try:
-        monkeypatch.setenv("COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}")
+        monkeypatch.setenv(
+            "COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}"
+        )
         from cog_sandbox_mcp.tools import cogos_bridge
 
         result = cogos_bridge.cogos_resolve("cog://blob/xyz")
@@ -682,7 +731,9 @@ def test_cogos_resolve_returns_structured_error_on_500(
 ) -> None:
     server, _ = _start_resolve_mock(status=500)
     try:
-        monkeypatch.setenv("COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}")
+        monkeypatch.setenv(
+            "COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}"
+        )
         from cog_sandbox_mcp.tools import cogos_bridge
 
         result = cogos_bridge.cogos_resolve("cog://nonsense/999")
@@ -707,11 +758,11 @@ def test_cogos_resolve_url_quotes_special_chars(
     # receives exactly one `uri` parameter with the full literal value.
     gnarly = "cog://notes/2026-04-20?draft&title=Plan A"
     encoded = b64.b64encode(b"hello").decode("ascii")
-    server, captured = _start_resolve_mock(
-        {"uri": gnarly, "content": encoded}
-    )
+    server, captured = _start_resolve_mock({"uri": gnarly, "content": encoded})
     try:
-        monkeypatch.setenv("COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}")
+        monkeypatch.setenv(
+            "COG_OS_BASE_URL", f"http://127.0.0.1:{server.server_address[1]}"
+        )
         from cog_sandbox_mcp.tools import cogos_bridge
 
         result = cogos_bridge.cogos_resolve(gnarly)

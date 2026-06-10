@@ -1,18 +1,18 @@
 {
   "mcpServers": {
     "cog-sandbox": {
-      "command": "C:\\Program Files\\RedHat\\Podman\\podman.exe",
+      "command": "podman",
       "args": [
         "run", "--rm", "-i",
         "--network=none",
-        "-v", "C:\\Users\\chazm\\work:/workspace:rw",
-        "-e", "COG_SANDBOX_INITIAL_AUTH=cog-workspace",
-        "cog-sandbox-mcp:0.1"
+        "-v", "<ABSOLUTE_PATH_TO_WORKSPACES_ROOT>:/workspace:rw",
+        "-e", "COG_SANDBOX_INITIAL_AUTH=<INITIAL_SUBDIR_OR_DOT>",
+        "cog-sandbox-mcp:0.4.1"
       ],
       "env": {
-        "APPDATA": "C:\\Users\\chazm\\AppData\\Roaming",
-        "LOCALAPPDATA": "C:\\Users\\chazm\\AppData\\Local",
-        "USERPROFILE": "C:\\Users\\chazm"
+        "APPDATA": "<APPDATA>",
+        "LOCALAPPDATA": "<LOCALAPPDATA>",
+        "USERPROFILE": "<USERPROFILE>"
       }
     }
   }

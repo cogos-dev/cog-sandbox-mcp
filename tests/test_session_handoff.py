@@ -25,7 +25,7 @@ _TEST_MOD3_WORKSPACE = os.path.join(
 )
 _TEST_HOSTNAME = os.environ.get("COGOS_TEST_HOSTNAME", "dev-laptop")
 
-import pytest
+import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -70,9 +70,7 @@ def _stub_post(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return calls
 
 
-def _stub_get(
-    monkeypatch: pytest.MonkeyPatch, result: Any
-) -> list[dict[str, Any]]:
+def _stub_get(monkeypatch: pytest.MonkeyPatch, result: Any) -> list[dict[str, Any]]:
     """Capture every GET to a kernel route; fake returns ``result`` verbatim."""
     from cog_sandbox_mcp.tools import cogos_bridge
 
@@ -102,6 +100,7 @@ def _stub_post_http_error(
 
     # Replace fp so .read() on the error works.
     import io
+
     real_error = urllib.error.HTTPError(
         url="http://x", code=status, msg="test", hdrs=None, fp=io.BytesIO(body.encode())
     )

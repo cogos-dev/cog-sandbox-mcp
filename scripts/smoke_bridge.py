@@ -25,12 +25,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from pathlib import Path
 
-PODMAN = r"C:\Program Files\RedHat\Podman\podman.exe"
-IMAGE = "cog-sandbox-mcp:0.1"
-WORKSPACE_MOUNT = r"C:\Users\chazm\work:/workspace:rw"
-COG_OS_URL = "http://192.168.10.140:5100"
+PODMAN = "podman"
+IMAGE = "cog-sandbox-mcp:0.4.1"
+WORKSPACE_MOUNT = "<ABSOLUTE_PATH_TO_WORKSPACES_ROOT>:/workspace:rw"
+COG_OS_URL = "http://localhost:5100"
 INITIAL_AUTH = "cog-workspace"
 PROBE_BUS_ID = "agent-smoke-test"
 PROBE_MESSAGE = "hello from desktop"
@@ -66,10 +65,16 @@ def _read_response(proc: subprocess.Popen, rpc_id: int, timeout: float = 15.0) -
 
 def main() -> int:
     args = [
-        PODMAN, "run", "--rm", "-i",
-        "-v", WORKSPACE_MOUNT,
-        "-e", f"COG_SANDBOX_INITIAL_AUTH={INITIAL_AUTH}",
-        "-e", f"COG_OS_BASE_URL={COG_OS_URL}",
+        PODMAN,
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        WORKSPACE_MOUNT,
+        "-e",
+        f"COG_SANDBOX_INITIAL_AUTH={INITIAL_AUTH}",
+        "-e",
+        f"COG_OS_BASE_URL={COG_OS_URL}",
         IMAGE,
     ]
     _log(f"[smoke] spawning: {' '.join(args)}")
@@ -84,11 +89,17 @@ def main() -> int:
     assert proc.stdin is not None and proc.stdout is not None
 
     try:
-        proc.stdin.write(_jsonrpc("initialize", {
-            "protocolVersion": "2025-06-18",
-            "capabilities": {},
-            "clientInfo": {"name": "smoke-bridge", "version": "0.0.1"},
-        }, 1))
+        proc.stdin.write(
+            _jsonrpc(
+                "initialize",
+                {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "smoke-bridge", "version": "0.0.1"},
+                },
+                1,
+            )
+        )
         proc.stdin.flush()
         init = _read_response(proc, 1)
         server_info = init.get("result", {}).get("serverInfo", {})
@@ -106,14 +117,22 @@ def main() -> int:
         required = {"cogos_status", "cogos_emit", "cogos_events_read", "cogos_resolve"}
         missing = required - set(names)
         if missing:
-            _log(f"[smoke] FAIL: bridge tools missing: {sorted(missing)} — COG_OS_BASE_URL didn't reach the container")
+            _log(
+                f"[smoke] FAIL: bridge tools missing: {sorted(missing)} — COG_OS_BASE_URL didn't reach the container"
+            )
             return 2
 
         # ---- 1) cogos_status (read probe) ----
-        proc.stdin.write(_jsonrpc("tools/call", {
-            "name": "cogos_status",
-            "arguments": {},
-        }, 3))
+        proc.stdin.write(
+            _jsonrpc(
+                "tools/call",
+                {
+                    "name": "cogos_status",
+                    "arguments": {},
+                },
+                3,
+            )
+        )
         proc.stdin.flush()
         status_res = _read_response(proc, 3, timeout=20.0).get("result", {})
         _log("[smoke] cogos_status result:")
@@ -127,20 +146,28 @@ def main() -> int:
         if "reachable" not in status_text:
             _log("[smoke] FAIL: cogos_status result didn't look like a bridge payload")
             return 3
-        if not ('"reachable": true' in status_text or '"reachable":true' in status_text):
+        if not (
+            '"reachable": true' in status_text or '"reachable":true' in status_text
+        ):
             _log("[smoke] FAIL: bridge registered but couldn't reach kernel")
             return 4
 
         # ---- 2) cogos_emit (write probe) ----
-        proc.stdin.write(_jsonrpc("tools/call", {
-            "name": "cogos_emit",
-            "arguments": {
-                "bus_id": PROBE_BUS_ID,
-                "message": PROBE_MESSAGE,
-                "from_sender": "desktop-smoke",
-                "event_type": "smoke",
-            },
-        }, 4))
+        proc.stdin.write(
+            _jsonrpc(
+                "tools/call",
+                {
+                    "name": "cogos_emit",
+                    "arguments": {
+                        "bus_id": PROBE_BUS_ID,
+                        "message": PROBE_MESSAGE,
+                        "from_sender": "desktop-smoke",
+                        "event_type": "smoke",
+                    },
+                },
+                4,
+            )
+        )
         proc.stdin.flush()
         emit_res = _read_response(proc, 4, timeout=20.0).get("result", {})
         _log("[smoke] cogos_emit result:")
@@ -157,22 +184,34 @@ def main() -> int:
         # Accept either the kernel's verbatim response or a structured error.
         # The contract is: never raise unhandled, always structured JSON.
         try:
-            payload = json.loads(emit_text) if emit_text.strip().startswith("{") else None
+            payload = (
+                json.loads(emit_text) if emit_text.strip().startswith("{") else None
+            )
         except json.JSONDecodeError:
             payload = None
         if payload and payload.get("success") is False:
-            _log(f"[smoke] WARN: cogos_emit returned structured error: {payload.get('error')}")
-            _log("[smoke] PARTIAL — tools registered + status reachable, but emit failed. "
-                 f"Check laptop: curl {COG_OS_URL}/v1/bus/{PROBE_BUS_ID}/events")
+            _log(
+                f"[smoke] WARN: cogos_emit returned structured error: {payload.get('error')}"
+            )
+            _log(
+                "[smoke] PARTIAL — tools registered + status reachable, but emit failed. "
+                f"Check laptop: curl {COG_OS_URL}/v1/bus/{PROBE_BUS_ID}/events"
+            )
             return 6
 
         emitted_seq = payload.get("seq") if isinstance(payload, dict) else None
 
         # ---- 3) cogos_events_read (roundtrip assertion) ----
-        proc.stdin.write(_jsonrpc("tools/call", {
-            "name": "cogos_events_read",
-            "arguments": {"bus_id": PROBE_BUS_ID, "limit": 10},
-        }, 5))
+        proc.stdin.write(
+            _jsonrpc(
+                "tools/call",
+                {
+                    "name": "cogos_events_read",
+                    "arguments": {"bus_id": PROBE_BUS_ID, "limit": 10},
+                },
+                5,
+            )
+        )
         proc.stdin.flush()
         read_res = _read_response(proc, 5, timeout=20.0).get("result", {})
         _log("[smoke] cogos_events_read result:")
@@ -180,7 +219,9 @@ def main() -> int:
 
         read_struct = read_res.get("structuredContent") or {}
         if read_struct.get("success") is False:
-            _log(f"[smoke] FAIL: cogos_events_read returned error: {read_struct.get('error')}")
+            _log(
+                f"[smoke] FAIL: cogos_events_read returned error: {read_struct.get('error')}"
+            )
             return 7
 
         events = read_struct.get("events") or []
@@ -191,17 +232,29 @@ def main() -> int:
         if emitted_seq is not None:
             seqs = [e.get("seq") for e in events]
             if emitted_seq not in seqs:
-                _log(f"[smoke] FAIL: emitted seq={emitted_seq} not found in events (saw {seqs})")
+                _log(
+                    f"[smoke] FAIL: emitted seq={emitted_seq} not found in events (saw {seqs})"
+                )
                 return 9
-            _log(f"[smoke] roundtrip OK — emitted seq={emitted_seq} present in {len(events)} events")
+            _log(
+                f"[smoke] roundtrip OK — emitted seq={emitted_seq} present in {len(events)} events"
+            )
         else:
-            _log(f"[smoke] WARN: emit response didn't include 'seq'; skipping strict seq check")
+            _log(
+                "[smoke] WARN: emit response didn't include 'seq'; skipping strict seq check"
+            )
 
         # ---- 4) cogos_resolve (read a known cog:// URI) ----
-        proc.stdin.write(_jsonrpc("tools/call", {
-            "name": "cogos_resolve",
-            "arguments": {"uri": PROBE_URI},
-        }, 6))
+        proc.stdin.write(
+            _jsonrpc(
+                "tools/call",
+                {
+                    "name": "cogos_resolve",
+                    "arguments": {"uri": PROBE_URI},
+                },
+                6,
+            )
+        )
         proc.stdin.flush()
         resolve_res = _read_response(proc, 6, timeout=20.0).get("result", {})
         _log("[smoke] cogos_resolve result (structured content below):")
@@ -209,7 +262,9 @@ def main() -> int:
         print(json.dumps(resolve_struct, indent=2), flush=True)
 
         if resolve_struct.get("success") is False:
-            _log(f"[smoke] FAIL: cogos_resolve({PROBE_URI}) returned error: {resolve_struct.get('error')}")
+            _log(
+                f"[smoke] FAIL: cogos_resolve({PROBE_URI}) returned error: {resolve_struct.get('error')}"
+            )
             return 10
 
         content = resolve_struct.get("content")
@@ -217,11 +272,17 @@ def main() -> int:
             _log(f"[smoke] FAIL: cogos_resolve({PROBE_URI}) returned no content")
             return 11
         if not content.startswith("---"):
-            _log(f"[smoke] FAIL: expected markdown frontmatter, got leading {content[:40]!r}")
+            _log(
+                f"[smoke] FAIL: expected markdown frontmatter, got leading {content[:40]!r}"
+            )
             return 12
 
-        _log(f"[smoke] resolve OK — {PROBE_URI} decoded to markdown ({len(content)} chars, frontmatter present)")
-        _log(f"[smoke] PASS — status reachable; emit→read roundtrip on {PROBE_BUS_ID}; resolve works")
+        _log(
+            f"[smoke] resolve OK — {PROBE_URI} decoded to markdown ({len(content)} chars, frontmatter present)"
+        )
+        _log(
+            f"[smoke] PASS — status reachable; emit→read roundtrip on {PROBE_BUS_ID}; resolve works"
+        )
         return 0
 
     finally:

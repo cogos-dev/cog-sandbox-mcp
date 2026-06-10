@@ -5,9 +5,9 @@
       "args": [
         "run", "--rm", "-i",
         "--network=none",
-        "-v", "C:\\Users\\chazm\\work:/workspace:rw",
-        "-e", "COG_SANDBOX_INITIAL_AUTH=cog-workspace",
-        "cog-sandbox-mcp:0.1"
+        "-v", "<ABSOLUTE_PATH_TO_WORKSPACES_ROOT>:/workspace:rw",
+        "-e", "COG_SANDBOX_INITIAL_AUTH=<INITIAL_SUBDIR_OR_DOT>",
+        "cog-sandbox-mcp:0.4.1"
       ]
     }
   }

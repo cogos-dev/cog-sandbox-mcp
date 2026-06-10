@@ -32,9 +32,7 @@ def read(path: str, offset: int = 0, limit: int = DEFAULT_LIMIT) -> str:
         raise FileNotFoundError(path)
     size = p.stat().st_size
     if size > MAX_READ_BYTES:
-        raise ValueError(
-            f"file is {size} bytes, exceeds read cap of {MAX_READ_BYTES}"
-        )
+        raise ValueError(f"file is {size} bytes, exceeds read cap of {MAX_READ_BYTES}")
     with p.open("r", encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
     window = lines[offset : offset + limit]
@@ -68,9 +66,7 @@ def write(path: str, content: str) -> str:
     return f"wrote {len(content)} chars to {to_virtual(target)}"
 
 
-def edit(
-    path: str, old_string: str, new_string: str, replace_all: bool = False
-) -> str:
+def edit(path: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
     """Exact-string edit. old_string must match uniquely unless replace_all=True.
 
     old_string and new_string must differ.
@@ -218,16 +214,22 @@ def list_directory(path: str = "") -> dict[str, Any]:
             t = "directory"
         else:
             t = "file"
-        entries.append({
-            "name": e.name,
-            "type": t,
-            "size": st.st_size if t == "file" else None,
-            "mtime": st.st_mtime,
-        })
+        entries.append(
+            {
+                "name": e.name,
+                "type": t,
+                "size": st.st_size if t == "file" else None,
+                "mtime": st.st_mtime,
+            }
+        )
     return {"path": path.strip("/"), "entries": entries}
 
 
-def tree(path: str = "", max_depth: int = DEFAULT_TREE_DEPTH, max_entries: int = MAX_TREE_ENTRIES) -> str:
+def tree(
+    path: str = "",
+    max_depth: int = DEFAULT_TREE_DEPTH,
+    max_entries: int = MAX_TREE_ENTRIES,
+) -> str:
     """Render a bounded text tree of the given path.
 
     Use this when you want a recursive overview of a directory structure (what
@@ -276,6 +278,17 @@ def _tree_walk(
     except OSError:
         return
     for c in children:
+        # Skip symlinked children whose resolved target is outside every authorized root.
+        # Without this check a symlink inside the sandbox can enumerate outside structure.
+        if c.is_symlink():
+            try:
+                resolved_target = c.resolve()
+            except OSError:
+                continue
+            from cog_sandbox_mcp.sandbox import _authorized_root_for
+
+            if _authorized_root_for(resolved_target) is None:
+                continue
         _tree_walk(c, c.name, depth + 1, max_depth, max_entries, counter, lines)
 
 
