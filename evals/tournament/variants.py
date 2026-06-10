@@ -24,27 +24,24 @@ import yaml
 
 log = logging.getLogger(__name__)
 
-# Default tournament cogdoc root under the cog workspace.
-# Resolution order:
-#   1. COG_TOURNAMENT_ROOT env var (explicit override)
-#   2. $COGOS_WORKSPACE/.cog/mem/semantic/architecture/tournament
-#      where COGOS_WORKSPACE defaults to ~/workspaces/cog
-_DEFAULT_TOURNAMENT_ROOT = Path(
-    os.environ.get(
-        "COG_TOURNAMENT_ROOT",
-        os.path.join(
-            os.environ.get(
-                "COGOS_WORKSPACE",
-                os.path.join(os.path.expanduser("~"), "workspaces", "cog"),
-            ),
-            ".cog",
-            "mem",
-            "semantic",
-            "architecture",
-            "tournament",
-        ),
+def _default_tournament_root() -> Path:
+    """Compute the default tournament cogdoc root at call time.
+
+    Resolution order:
+      1. COG_TOURNAMENT_ROOT env var (explicit override)
+      2. $COGOS_WORKSPACE/.cog/mem/semantic/architecture/tournament
+         where COGOS_WORKSPACE defaults to ~/workspaces/cog
+
+    Evaluated lazily (not at import time) so tests and CI can set
+    COG_TOURNAMENT_ROOT via environment or conftest before the first call.
+    """
+    explicit = os.environ.get("COG_TOURNAMENT_ROOT", "").strip()
+    if explicit:
+        return Path(explicit)
+    workspace = os.environ.get("COGOS_WORKSPACE", "").strip() or os.path.join(
+        os.path.expanduser("~"), "workspaces", "cog"
     )
-)
+    return Path(workspace, ".cog", "mem", "semantic", "architecture", "tournament")
 
 
 @dataclass
@@ -148,7 +145,7 @@ def load_variants(
         Dict mapping variant id → Variant. Experiment cogdocs are included with
         variant_class == '' or 'experiment' — callers filter by variant_class.
     """
-    root = tournament_root or _DEFAULT_TOURNAMENT_ROOT
+    root = tournament_root or _default_tournament_root()
     if not root.exists():
         log.warning("Tournament root does not exist: %s", root)
         return {}
@@ -171,7 +168,7 @@ def load_experiment(
     tournament_root: Path | None = None,
 ) -> Variant | None:
     """Load a single experiment cogdoc by id."""
-    root = tournament_root or _DEFAULT_TOURNAMENT_ROOT
+    root = tournament_root or _default_tournament_root()
     exp_dir = root / "experiments"
     if not exp_dir.exists():
         log.warning("Experiments dir not found: %s", exp_dir)
