@@ -72,7 +72,7 @@ $EscUserProfile = $env:USERPROFILE   -replace '\\','\\'
 "@
 Write-Host ''
 Write-Host "==> Replace $WorkspacesRootPlaceholder with the absolute host path of the parent"
-Write-Host '    directory that contains your workspaces (e.g. "C:\\Users\\chazm\\work").'
+Write-Host '    directory that contains your workspaces (e.g. "C:\\Users\\username\\work").'
 Write-Host '    The container mounts this at /workspace and the agent can reach anything under it'
 Write-Host '    only if explicitly granted.'
 Write-Host "==> Replace $InitialAuthPlaceholder with the initial authorized subdirectory"

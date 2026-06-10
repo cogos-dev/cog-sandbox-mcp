@@ -15,7 +15,15 @@ _FIXTURE_ROOT = Path(__file__).parent.parent / "fixtures"
 
 
 def pytest_configure(config) -> None:  # noqa: ANN001
-    """Set COG_TOURNAMENT_ROOT to the in-repo fixtures unless already overridden."""
+    """Set COG_TOURNAMENT_ROOT to the in-repo fixtures unless already overridden.
+
+    CI strategy: tournament tests run against the minimal cogdoc fixtures committed
+    under evals/tournament/fixtures/. This means the tests genuinely exercise the
+    adapter and scoring logic in CI rather than being skipped. Full cogdoc-coupled
+    runs (against the live workspace tree) happen on dev machines where COGOS_WORKSPACE
+    points at a real cog workspace. To opt into the live path locally, set
+    COG_TOURNAMENT_ROOT explicitly before running pytest.
+    """
     if "COG_TOURNAMENT_ROOT" not in os.environ:
         # Check whether the default workspace-derived path would actually work.
         # If not, fall back to the committed fixtures so CI stays green.
