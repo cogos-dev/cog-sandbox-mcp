@@ -135,6 +135,24 @@ def test_tree_at_root_covers_workspaces(workspace: Path) -> None:
     assert "ws/" in out
 
 
+def test_tree_does_not_follow_symlink_outside_sandbox(
+    workspace: Path, tmp_path: Path
+) -> None:
+    """A symlink inside the workspace pointing outside the sandbox root must be
+    silently skipped by tree() — not enumerated, not errored."""
+    # Create a directory outside the sandbox root with a secret file
+    outside = tmp_path.parent / "outside_secret"
+    outside.mkdir(exist_ok=True)
+    (outside / "secret.txt").write_text("private data")
+    # Place a symlink inside the workspace pointing to that outside directory
+    link = workspace / "escape_link"
+    link.symlink_to(outside)
+    out = fs.tree("ws", max_depth=3)
+    assert "escape_link" not in out
+    assert "secret.txt" not in out
+    assert "private data" not in out
+
+
 # ---------- authorization tools ----------
 
 

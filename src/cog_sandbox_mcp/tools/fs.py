@@ -276,6 +276,17 @@ def _tree_walk(
     except OSError:
         return
     for c in children:
+        # Skip symlinked children whose resolved target is outside every authorized root.
+        # Without this check a symlink inside the sandbox can enumerate outside structure.
+        if c.is_symlink():
+            try:
+                resolved_target = c.resolve()
+            except OSError:
+                continue
+            from cog_sandbox_mcp.sandbox import _authorized_root_for
+
+            if _authorized_root_for(resolved_target) is None:
+                continue
         _tree_walk(c, c.name, depth + 1, max_depth, max_entries, counter, lines)
 
 
