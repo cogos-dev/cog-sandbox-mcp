@@ -18,9 +18,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Module-level helpers (imported directly, not via class)
@@ -37,6 +35,7 @@ from evals.tournament.client_chat import (
 # _to_oai_tool
 # ---------------------------------------------------------------------------
 
+
 class TestToOaiTool:
     def _make_kernel_tool(self, name: str, description: str) -> dict[str, Any]:
         return {
@@ -49,7 +48,9 @@ class TestToOaiTool:
         }
 
     def test_baseline_uses_kernel_description(self):
-        t = self._make_kernel_tool("cog_search_memory", "Search the CogDoc memory corpus.")
+        t = self._make_kernel_tool(
+            "cog_search_memory", "Search the CogDoc memory corpus."
+        )
         oai = _to_oai_tool(t, description_override=None)
         assert oai["function"]["name"] == "cog_search_memory"
         assert oai["function"]["description"] == "Search the CogDoc memory corpus."
@@ -57,8 +58,13 @@ class TestToOaiTool:
 
     def test_override_replaces_description(self):
         t = self._make_kernel_tool("cog_search_memory", "Original description.")
-        oai = _to_oai_tool(t, description_override="Overridden description with anti-pattern.")
-        assert oai["function"]["description"] == "Overridden description with anti-pattern."
+        oai = _to_oai_tool(
+            t, description_override="Overridden description with anti-pattern."
+        )
+        assert (
+            oai["function"]["description"]
+            == "Overridden description with anti-pattern."
+        )
 
     def test_description_capped_at_500_chars(self):
         t = self._make_kernel_tool("cog_search_memory", "x" * 600)
@@ -84,6 +90,7 @@ class TestToOaiTool:
 # ---------------------------------------------------------------------------
 # _parse_args
 # ---------------------------------------------------------------------------
+
 
 class TestParseArgs:
     def test_dict_passthrough(self):
@@ -111,6 +118,7 @@ class TestParseArgs:
 # ChatCompletionsClient unit tests (HTTP + MCP mocked)
 # ---------------------------------------------------------------------------
 
+
 def _make_lms_response(content: str | None, tool_calls: list | None = None) -> dict:
     """Build a minimal /v1/chat/completions response dict."""
     msg: dict[str, Any] = {"role": "assistant"}
@@ -119,7 +127,12 @@ def _make_lms_response(content: str | None, tool_calls: list | None = None) -> d
     if tool_calls:
         msg["tool_calls"] = tool_calls
     return {
-        "choices": [{"message": msg, "finish_reason": "stop" if not tool_calls else "tool_calls"}],
+        "choices": [
+            {
+                "message": msg,
+                "finish_reason": "stop" if not tool_calls else "tool_calls",
+            }
+        ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5},
     }
 
@@ -138,7 +151,9 @@ def _make_tool_call_msg(tool_name: str, args: dict, call_id: str = "call-1") -> 
 class TestChatCompletionsClientDispatch:
     """Mock both httpx.Client and _MCPSession to test dispatch() in isolation."""
 
-    def _make_client(self, http_responses: list[dict], mcp_tools_result: dict | None = None):
+    def _make_client(
+        self, http_responses: list[dict], mcp_tools_result: dict | None = None
+    ):
         """Build a ChatCompletionsClient with mocked HTTP and MCP layers."""
         from evals.tournament.client_chat import ChatCompletionsClient
 
@@ -172,8 +187,6 @@ class TestChatCompletionsClientDispatch:
         # Build iterator for HTTP responses
         http_iter = iter(http_responses)
 
-        mock_http_response = MagicMock()
-
         def post_side_effect(url, **kwargs):
             resp_data = next(http_iter)
             mock_resp = MagicMock()
@@ -184,8 +197,10 @@ class TestChatCompletionsClientDispatch:
         mock_http = MagicMock()
         mock_http.post.side_effect = post_side_effect
 
-        with patch("evals.tournament.client_chat._MCPSession", return_value=mock_mcp), \
-             patch("httpx.Client", return_value=mock_http):
+        with (
+            patch("evals.tournament.client_chat._MCPSession", return_value=mock_mcp),
+            patch("httpx.Client", return_value=mock_http),
+        ):
             client = ChatCompletionsClient(
                 base_url="http://localhost:1234",
                 api_token="test-token",
@@ -244,7 +259,9 @@ class TestChatCompletionsClientDispatch:
         # Extract the tools[] array from the LMS POST call
         call_kwargs = client._http.post.call_args
         sent_tools = call_kwargs[1]["json"]["tools"]  # keyword args
-        sm_tool = next(t for t in sent_tools if t["function"]["name"] == "cog_search_memory")
+        sm_tool = next(
+            t for t in sent_tools if t["function"]["name"] == "cog_search_memory"
+        )
         assert "Do NOT call cog_read_cogdoc" in sm_tool["function"]["description"]
 
     def test_max_turns_exhaustion_returns_partial(self):
@@ -286,7 +303,9 @@ class TestChatCompletionsClientDispatch:
 
     def test_string_args_parsed_correctly(self):
         """Tool call with JSON-string arguments (not dict) is handled."""
-        tc = _make_tool_call_msg("cog_search_memory", {"query": "uptime"}, call_id="call-s")
+        tc = _make_tool_call_msg(
+            "cog_search_memory", {"query": "uptime"}, call_id="call-s"
+        )
         # lms_orchestrator.py:243: raw_args may be a string
         responses = [
             _make_lms_response(None, tool_calls=[tc]),
@@ -301,6 +320,7 @@ class TestChatCompletionsClientDispatch:
 # ---------------------------------------------------------------------------
 # Runner routing helpers
 # ---------------------------------------------------------------------------
+
 
 class TestRunnerRouting:
     """Test _is_td_nonbaseline and td_wired computation from runner.py."""
@@ -334,22 +354,26 @@ class TestRunnerRouting:
 
     def test_baseline_td_not_nonbaseline(self):
         from evals.tournament.runner import _is_td_nonbaseline
+
         spec = self._make_spec("td-1-current")
         assert _is_td_nonbaseline(spec) is False
 
     def test_no_td_variant_not_nonbaseline(self):
         from evals.tournament.runner import _is_td_nonbaseline
+
         spec = self._make_spec(None)
         assert _is_td_nonbaseline(spec) is False
 
     def test_nonbaseline_td_is_nonbaseline(self):
         from evals.tournament.runner import _is_td_nonbaseline
+
         spec = self._make_spec("td-3-with-anti-patterns")
         assert _is_td_nonbaseline(spec) is True
 
     def test_td_wired_true_when_chat_client_available(self):
         """td_wired should be True when non-baseline TD + chat_client available."""
         from evals.tournament.runner import _is_td_nonbaseline
+
         spec = self._make_spec("td-3-with-anti-patterns")
         chat_client = MagicMock()  # non-None
 
@@ -362,6 +386,7 @@ class TestRunnerRouting:
     def test_td_wired_false_when_no_chat_client(self):
         """td_wired should be False when non-baseline TD but no chat_client."""
         from evals.tournament.runner import _is_td_nonbaseline
+
         spec = self._make_spec("td-3-with-anti-patterns")
 
         td_wired = not _is_td_nonbaseline(spec) or (
@@ -372,6 +397,7 @@ class TestRunnerRouting:
     def test_td_wired_true_for_baseline(self):
         """td_wired should be True for baseline TD regardless of chat_client."""
         from evals.tournament.runner import _is_td_nonbaseline
+
         spec = self._make_spec("td-1-current")
 
         td_wired = not _is_td_nonbaseline(spec) or (

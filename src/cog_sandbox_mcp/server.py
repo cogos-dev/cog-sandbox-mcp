@@ -49,9 +49,7 @@ def http_settings(env: dict[str, str] | None = None) -> dict[str, object]:
     try:
         port = int(port_raw) if port_raw else DEFAULT_HTTP_PORT
     except ValueError as e:
-        raise ValueError(
-            f"Invalid {ENV_HTTP_PORT}={port_raw!r}: {e}"
-        ) from e
+        raise ValueError(f"Invalid {ENV_HTTP_PORT}={port_raw!r}: {e}") from e
     path = src.get(ENV_HTTP_PATH) or DEFAULT_HTTP_PATH
     if not path.startswith("/"):
         path = "/" + path

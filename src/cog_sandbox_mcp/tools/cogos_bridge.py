@@ -340,7 +340,11 @@ def cogos_resolve(uri: str, decode: bool = True) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
         detail = f"HTTP {e.code} {e.reason}"
-        if kernel_error and isinstance(kernel_error, dict) and kernel_error.get("message"):
+        if (
+            kernel_error
+            and isinstance(kernel_error, dict)
+            and kernel_error.get("message")
+        ):
             detail = f"{detail} — {kernel_error['message']}"
         elif body_text:
             detail = f"{detail} — {body_text}"
@@ -599,9 +603,7 @@ def cogos_session_heartbeat(
         payload["context_usage"] = context_usage
     if current_task is not None:
         payload["current_task"] = current_task
-    return _kernel_post(
-        f"/v1/sessions/{session_id}/heartbeat", payload, BUS_SESSIONS
-    )
+    return _kernel_post(f"/v1/sessions/{session_id}/heartbeat", payload, BUS_SESSIONS)
 
 
 def cogos_session_end(
@@ -636,9 +638,7 @@ def cogos_session_end(
     payload: dict[str, Any] = {"reason": reason}
     if handoff_id is not None:
         payload["handoff_id"] = handoff_id
-    return _kernel_post(
-        f"/v1/sessions/{session_id}/end", payload, BUS_SESSIONS
-    )
+    return _kernel_post(f"/v1/sessions/{session_id}/end", payload, BUS_SESSIONS)
 
 
 def _parse_payload(event: dict[str, Any]) -> dict[str, Any]:
@@ -919,7 +919,8 @@ def cogos_handoff_list_open(
     if include_claimed:
         # Post-filter: keep only open + claimed rows, same as v0.1 did.
         handoffs = [
-            h for h in handoffs
+            h
+            for h in handoffs
             if isinstance(h, dict) and h.get("state") in ("open", "claimed")
         ]
     # Reshape to v0.1-shaped entries so callers that iterate
@@ -979,9 +980,7 @@ def cogos_handoff_claim(handoff_id: str, claiming_session: str) -> dict[str, Any
     # bus_handoffs for observability (see HANDOFF_PROTOCOL v0.2 §Atomic
     # claim and amendment #4 of the hybrid landing plan).
     payload = {"claiming_session": claiming_session}
-    body = _kernel_post(
-        f"/v1/handoffs/{handoff_id}/claim", payload, BUS_HANDOFFS
-    )
+    body = _kernel_post(f"/v1/handoffs/{handoff_id}/claim", payload, BUS_HANDOFFS)
     if isinstance(body, dict) and body.get("success") is False:
         # Keep the legacy shape expected by callers: they check for
         # ``success == False`` and read ``error``.
@@ -1039,9 +1038,7 @@ def cogos_handoff_complete(
         payload["notes"] = notes
     if next_handoff_id is not None:
         payload["next_handoff_id"] = next_handoff_id
-    return _kernel_post(
-        f"/v1/handoffs/{handoff_id}/complete", payload, BUS_HANDOFFS
-    )
+    return _kernel_post(f"/v1/handoffs/{handoff_id}/complete", payload, BUS_HANDOFFS)
 
 
 def _mod3_base_url() -> str:

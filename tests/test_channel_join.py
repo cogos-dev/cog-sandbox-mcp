@@ -55,7 +55,11 @@ def _stub_post_and_get(
         path: str, payload: dict[str, Any], timeout_s: float = 30.0
     ) -> dict[str, Any]:
         post_calls.append({"path": path, "payload": payload})
-        return {"ok": True, "seq": 42 + len(post_calls), "hash": f"hash{len(post_calls)}"}
+        return {
+            "ok": True,
+            "seq": 42 + len(post_calls),
+            "hash": f"hash{len(post_calls)}",
+        }
 
     def fake_get(
         path: str, params: dict[str, Any] | None = None, timeout_s: float = 10.0
@@ -379,6 +383,7 @@ def test_channel_join_never_raises_on_kernel_http_error(
         return {"sessions": [{"session_id": "host-ws-role"}], "count": 1}
 
     import io
+
     def fake_post(
         path: str, payload: dict[str, Any], timeout_s: float = 30.0
     ) -> dict[str, Any]:
@@ -473,14 +478,10 @@ def test_channel_leave_rejects_blank_fields(
 ) -> None:
     from cog_sandbox_mcp.tools import cogos_bridge
 
-    r = cogos_bridge.cogos_channel_leave(
-        session_id="host-ws-role", channel_id=""
-    )
+    r = cogos_bridge.cogos_channel_leave(session_id="host-ws-role", channel_id="")
     assert r["success"] is False
     assert "channel_id" in r["error"]
 
-    r = cogos_bridge.cogos_channel_leave(
-        session_id="", channel_id="voice-room-primary"
-    )
+    r = cogos_bridge.cogos_channel_leave(session_id="", channel_id="voice-room-primary")
     assert r["success"] is False
     assert "session_id" in r["error"]
