@@ -25,12 +25,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from pathlib import Path
 
-PODMAN = r"C:\Program Files\RedHat\Podman\podman.exe"
-IMAGE = "cog-sandbox-mcp:0.1"
-WORKSPACE_MOUNT = r"C:\Users\chazm\work:/workspace:rw"
-COG_OS_URL = "http://192.168.10.140:5100"
+PODMAN = "podman"
+IMAGE = "cog-sandbox-mcp:0.4.1"
+WORKSPACE_MOUNT = "<ABSOLUTE_PATH_TO_WORKSPACES_ROOT>:/workspace:rw"
+COG_OS_URL = "http://localhost:5100"
 INITIAL_AUTH = "cog-workspace"
 PROBE_BUS_ID = "agent-smoke-test"
 PROBE_MESSAGE = "hello from desktop"
