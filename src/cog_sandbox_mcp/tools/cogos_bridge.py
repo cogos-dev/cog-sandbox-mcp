@@ -1,7 +1,7 @@
 """Bridge tools that proxy to a reachable Cog OS kernel.
 
 The Cog OS Go kernel (`.cog/cog`) exposes an HTTP API on port 5100 (by default)
-with OpenAI-compat endpoints plus CogOS-native routes (`/health`, `/resolve`,
+with OpenAI-compat endpoints plus CogOS-native routes (`/health`, `/v1/resolve`,
 `/mutate`, `/ws/watch`, fleet/emit endpoints). When the env var COG_OS_BASE_URL
 is set and the kernel is reachable, these bridge tools become available to the
 agent — exposing CogOS primitives (fleet spawn, event ledger, memory query via
@@ -298,7 +298,7 @@ def cogos_events_read(
 def cogos_resolve(uri: str, decode: bool = True) -> dict[str, Any]:
     """Resolve a cog:// URI against the Cog OS kernel and return its contents.
 
-    GETs {COG_OS_BASE_URL}/resolve?uri=<url-encoded cog-uri>. The kernel
+    GETs {COG_OS_BASE_URL}/v1/resolve?uri=<url-encoded cog-uri>. The kernel
     returns JSON of the form {"uri", "content": <base64>, ...} on success.
     On a bogus / missing URI the kernel returns HTTP 500 with
     {"error": {"message", "type"}} — in that case this tool returns
@@ -324,7 +324,7 @@ def cogos_resolve(uri: str, decode: bool = True) -> dict[str, Any]:
       decode: whether to base64 + UTF-8 decode the content (default True).
     """
     try:
-        resp = _http_get_any_with_params("/resolve", {"uri": uri})
+        resp = _http_get_any_with_params("/v1/resolve", {"uri": uri})
     except urllib.error.HTTPError as e:
         body_raw = b""
         try:
