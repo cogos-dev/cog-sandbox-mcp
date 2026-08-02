@@ -16,7 +16,7 @@ sections:
     size: 240
   - title: Source / origin
     line: 20
-    size: 186
+    size: 159
 ---
 
 # SP-1: Production Dispatch Prompt (Baseline)
@@ -39,4 +39,4 @@ Known-working baseline. All other SP variants are measured as deltas against thi
 
 ## Source / origin
 
-Exact text of `localHarnessDispatchPrompt` from `/Users/slowbro/workspaces/cogos-dev/cogos/internal/engine/local_agent_harness.go` lines 59-67. Captured 2026-04-25.
+Exact text of `localHarnessDispatchPrompt` from `internal/engine/local_agent_harness.go` (myrgic/cogos) lines 59-67. Captured 2026-04-25.
