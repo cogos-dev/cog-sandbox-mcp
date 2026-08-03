@@ -1,6 +1,6 @@
 [project]
 name = "cog-sandbox-mcp"
-version = "0.5.0"
+version = "0.6.0"
 description = "Cog OS filesystem-coding-agent sandbox exposed via the Model Context Protocol"
 requires-python = ">=3.10"
 dependencies = [

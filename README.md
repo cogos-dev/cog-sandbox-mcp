@@ -63,6 +63,11 @@ client.
   pre-authorize on startup).
 - `COG_OS_BASE_URL` (if set, Cog OS bridge tools are registered). See
   [`docs/BRIDGE_PATTERN.md`](docs/BRIDGE_PATTERN.md).
+- `COG_SANDBOX_SEATS_ENABLED` (if truthy, seat provisioning tools are
+  registered) and `COG_SANDBOX_SEATS_ROOT` (parent directory of provisioned
+  seat HOMEs; defaults to a `cog-sandbox-seats` directory alongside
+  `COG_SANDBOX_ROOT`). See [Seat provisioning tools](#seat-provisioning-tools)
+  below.
 
 ## Cog OS bridge tools
 
@@ -110,3 +115,46 @@ other thirteen bridge tools were checked against the same kernel route table
 and are current. Fixing `cogos_resolve` is a small code change (swap the
 request path in `src/cog_sandbox_mcp/tools/cogos_bridge.py`) and is tracked
 separately from this documentation pass.
+
+## Seat provisioning tools
+
+These tools only appear in the MCP tool list when `COG_SANDBOX_SEATS_ENABLED`
+is truthy at server startup — same conditional-registration posture as the
+Cog OS bridge tools above. They mechanize the sandboxed-CC-seat pattern: an
+isolated, co-drivable Claude Code instance with its own `HOME`, its own login
+keychain, and its own OAuth grant, standable up and torn down without ever
+touching the operator's live seat.
+
+Host-side, not sandboxed: unlike the filesystem tools, seat tools shell out
+to `tmux`, `claude`, and (on macOS) `security` — none of which exist in this
+package's own rootless, network-isolated container image (see `Dockerfile`).
+Run the MCP server directly on the host to use them, or reach for a separate
+host-side invocation of this same package.
+
+| Tool | What it does |
+|---|---|
+| `seat_create` | Provisions a seat: `HOME` tree + work dir, isolated login keychain, marketplace + plugin install, detached tmux session running `claude`. |
+| `seat_list` | Lists provisioned seats with tmux-alive status and installed plugin versions. |
+| `seat_status` | Pane-tail capture for one seat, plus a kernel registry check via the Cog OS bridge if `COG_OS_BASE_URL` is set. |
+| `seat_destroy` | Kills the seat's tmux session, ends any matching kernel registry sessions, and deletes the seat's `HOME` (including its keychain). |
+
+**The login boundary.** `seat_create` never touches credential material. It
+creates an *empty* keychain so a fresh `/login` has somewhere to persist a
+token — it does not read, copy, or graft any existing OAuth token, API key,
+or `.credentials.json`. The operator (or a co-driving root seat) must attach
+to the returned tmux session and run `/login` there themselves; this mints a
+fresh, independently-rotating OAuth grant scoped to that seat alone. Watch
+the auth banner after login — it can default to a metered Console/org
+account rather than the intended subscription account.
+
+Isolation is a ladder: only `"config"` (HOME-tree + keychain isolation) is
+implemented today. `"profile"` and `"vm"` are reserved names for stronger
+future tiers; passing either raises a clear error naming the full ladder
+rather than silently downgrading to `"config"`.
+
+**Graduation note.** This tool family is the userspace prototype of seat
+lifecycle management — hand-provisioning mechanized into MCP tools. Lifecycle
+authority (which seats exist, who may spawn one, how a seat's sessions
+compose with the kernel's own session registry) is expected to graduate into
+the CogOS kernel over time. Treat `seat_*` here as the working prototype, not
+the permanent home, for that authority.
