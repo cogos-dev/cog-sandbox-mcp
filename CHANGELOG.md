@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.6.0 - 2026-08-03
+
+**New tools (seats):** four `seat_*` tools mechanize the sandboxed-CC-seat
+pattern proven by hand during the cogos-harness plugin dogfood — an isolated,
+co-drivable Claude Code instance with its own `HOME`, its own login
+keychain, and its own fresh OAuth grant, standable up and torn down without
+touching the operator's live seat or its tokens.
+
+- `seat_create(name, marketplace="myrgic/plugins", plugins=["cogos-harness"], isolation="config")` — creates `<seats_root>/<name>` (`HOME`) + `<home>/work` (cwd), a fresh HOME-scoped login keychain (`security create-keychain` / `default-keychain` / `unlock-keychain` / `set-keychain-settings`), a marketplace add + plugin install, and a detached tmux session running `claude` under that `HOME`. Rolls back (deletes the partial `HOME`) if any provisioning step fails. Never touches credential material — the keychain it creates is empty; the operator must attach and run `/login` themselves to mint the seat's own OAuth grant.
+- `seat_list()` — provisioned seats with tmux-alive status and a live `claude plugin list --json` query per seat.
+- `seat_status(name, lines=100)` — tmux pane-tail capture plus a kernel registry lookup (sessions whose `workspace` matches the seat's work dir) via the Cog OS bridge, when `COG_OS_BASE_URL` is set.
+- `seat_destroy(name)` — kills the tmux session, ends matching kernel registry sessions (`reason="session_end_hook"`), then deletes the seat's `HOME` (the keychain file is HOME-scoped, so no separate delete step is needed).
+
+Registered conditionally on `COG_SANDBOX_SEATS_ENABLED`, mirroring the
+`cogos_*` bridge tools' gate on `COG_OS_BASE_URL` — the whole family either
+appears or doesn't. `COG_SANDBOX_SEATS_ROOT` configures where seat `HOME`s
+live (default: a `cog-sandbox-seats` directory alongside `COG_SANDBOX_ROOT`).
+Seat names are validated against a strict charset and resolved with the same
+direct-child-of-root traversal guard the fs sandbox uses for workspace names,
+since a seat name flows into a tmux session name and a `HOME` directory name.
+
+Isolation is exposed as a ladder (`config | profile | vm`); only `"config"`
+exists today, and asking for `"profile"` or `"vm"` raises a clear error
+naming the full ladder instead of silently downgrading, so the interface is
+forward-stable as stronger isolation tiers land.
+
+Platform: macOS only, for the keychain step — `seat_create` raises a clear
+`RuntimeError` naming the current platform on any other OS, before touching
+disk, rather than partially provisioning a seat with no usable keychain. Seat
+tools are host-side (they shell out to `tmux`, `claude`, and `security`),
+distinct from the rootless network-isolated container the fs tools run in —
+see the README's new Seat provisioning tools section for why, plus the
+login-boundary contract and the seat-runtime graduation note (this surface is
+the userspace prototype; lifecycle authority is expected to move into the
+CogOS kernel over time).
+
+**Tests:** `tests/test_seat.py` covers provisioning layout, the traversal
+guard, isolation-ladder rejection, non-macOS rejection, rollback-on-failure,
+`seat_list` filtering of non-seat directories, and `seat_destroy` cleanup
+(tmux kill, registry-session-end, HOME removal) — all with `subprocess.run`
+mocked via a single seam (`seat._run`); no live `claude` binary, tmux, or
+keychain required in CI.
+
 ## 0.5.0 - 2026-08-02
 
 Ten-plus merged PRs since 0.4.1. The session/handoff bridge tools now route through the kernel's own native endpoints instead of emitting to the raw event bus, channel join/leave gets a participant-type discriminant and test coverage, a new tournament/evaluation harness lands for benchmarking dispatch modes against the kernel, a sandbox-escape gap involving symlinks is closed, and the repo picks up the CI, licensing, and hygiene work a public release needs.
