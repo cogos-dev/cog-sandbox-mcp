@@ -18,7 +18,7 @@ kernel-held event bus, and hand a task off to another session. See
 Unchanged. Launch via `python -m cog_sandbox_mcp` (or the `cog-sandbox-mcp`
 console script). One subprocess per MCP client.
 
-### HTTP (Streamable-HTTP) — opt-in
+### HTTP (Streamable-HTTP, opt-in)
 
 Run one centralized server and connect multiple Claude Code sessions as
 independent clients via `mcp-remote`.
@@ -53,15 +53,15 @@ Wire into `.mcp.json` (Claude Code) using `mcp-remote`:
 ```
 
 Each session spawns its own `mcp-remote` stdio shim that proxies JSON-RPC to the
-shared HTTP server — the server sees each Claude Code session as an independent
+shared HTTP server. The server sees each Claude Code session as an independent
 client.
 
 ## Environment for the sandbox itself
 
-- `COG_SANDBOX_ROOT` — parent directory of per-session workspaces.
-- `COG_SANDBOX_INITIAL_AUTH` — colon-separated list of workspace names to
-  pre-authorize on startup.
-- `COG_OS_BASE_URL` — if set, Cog OS bridge tools are registered. See
+- `COG_SANDBOX_ROOT` (parent directory of per-session workspaces).
+- `COG_SANDBOX_INITIAL_AUTH` (colon-separated list of workspace names to
+  pre-authorize on startup).
+- `COG_OS_BASE_URL` (if set, Cog OS bridge tools are registered). See
   [`docs/BRIDGE_PATTERN.md`](docs/BRIDGE_PATTERN.md).
 
 ## Cog OS bridge tools
