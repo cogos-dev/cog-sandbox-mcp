@@ -24,7 +24,7 @@ sections:
     size: 269
   - title: Source / origin
     line: 22
-    size: 156
+    size: 129
 ---
 
 # TD-1: Current Tool Descriptions (Baseline)
@@ -49,4 +49,4 @@ Baseline for all TD variants. Establishes current tool-description quality as th
 
 ## Source / origin
 
-Verbatim descriptions from `/Users/slowbro/workspaces/cogos-dev/cogos/internal/engine/tool_loop.go` lines 60-200. Captured 2026-04-25.
+Verbatim descriptions from `internal/engine/tool_loop.go` (myrgic/cogos) lines 60-200. Captured 2026-04-25.
