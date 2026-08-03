@@ -603,7 +603,7 @@ def _start_resolve_mock(
     status: int = 200,
     raw_body: bytes | None = None,
 ):
-    """Spin up a threaded HTTP server that captures /resolve requests.
+    """Spin up a threaded HTTP server that captures /v1/resolve requests.
 
     Returns (server, captured_dict). Caller is responsible for server.shutdown().
     """
@@ -669,7 +669,7 @@ def test_cogos_resolve_decodes_base64_to_utf8(
         server.shutdown()
         server.server_close()
 
-    assert captured["path"] == "/resolve"
+    assert captured["path"] == "/v1/resolve"
     assert captured["query"] == {"uri": ["cog://adr/085"]}
     assert result["uri"] == "cog://adr/085"
     assert result["etag"] == "abc123"
