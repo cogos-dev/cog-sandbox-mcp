@@ -27,7 +27,7 @@ import subprocess
 import sys
 
 PODMAN = "podman"
-IMAGE = "cog-sandbox-mcp:0.4.1"
+IMAGE = "cog-sandbox-mcp:0.5.0"
 WORKSPACE_MOUNT = "<ABSOLUTE_PATH_TO_WORKSPACES_ROOT>:/workspace:rw"
 COG_OS_URL = "http://localhost:5100"
 INITIAL_AUTH = "cog-workspace"

@@ -7,7 +7,7 @@
         "--network=none",
         "-v", "<ABSOLUTE_PATH_TO_WORKSPACES_ROOT>:/workspace:rw",
         "-e", "COG_SANDBOX_INITIAL_AUTH=<INITIAL_SUBDIR_OR_DOT>",
-        "cog-sandbox-mcp:0.4.1"
+        "cog-sandbox-mcp:0.5.0"
       ]
     }
   }
