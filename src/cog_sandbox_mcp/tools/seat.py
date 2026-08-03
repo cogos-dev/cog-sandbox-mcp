@@ -283,19 +283,51 @@ def _tmux_new_session(name: str, work_dir: Path, home: Path) -> None:
     )
 
 
+def _tmux_target_session(name: str) -> str:
+    """tmux target-session string pinned to an EXACT match.
+
+    Without the leading '=', tmux resolves a target by exact match, then by
+    PREFIX, then by fnmatch pattern. That fallback is a cross-session hazard
+    here: a seat named 'cogos' whose own tmux session has already exited would
+    otherwise resolve to an unrelated live session like 'cogos-dogfood' —
+    making `seat_destroy` kill the operator's session and `seat_status` dump
+    its pane. The '=' prefix disables prefix/fnmatch fallback entirely.
+    """
+    return f"={name}"
+
+
+def _tmux_target_pane(name: str) -> str:
+    """Exact-match target-pane for the seat's session (trailing ':' selects
+    that session's current window/pane)."""
+    return f"={name}:"
+
+
 def _tmux_has_session(name: str) -> bool:
-    result = _run(["tmux", "has-session", "-t", name], check=False)
+    result = _run(
+        ["tmux", "has-session", "-t", _tmux_target_session(name)], check=False
+    )
     return result.returncode == 0
 
 
 def _tmux_kill_session(name: str) -> bool:
-    result = _run(["tmux", "kill-session", "-t", name], check=False)
+    result = _run(
+        ["tmux", "kill-session", "-t", _tmux_target_session(name)], check=False
+    )
     return result.returncode == 0
 
 
 def _tmux_capture_pane(name: str, lines: int) -> str:
     result = _run(
-        ["tmux", "capture-pane", "-t", name, "-p", "-S", f"-{lines}"], check=False
+        [
+            "tmux",
+            "capture-pane",
+            "-t",
+            _tmux_target_pane(name),
+            "-p",
+            "-S",
+            f"-{lines}",
+        ],
+        check=False,
     )
     if result.returncode != 0:
         return ""

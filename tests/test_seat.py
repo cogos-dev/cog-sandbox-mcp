@@ -547,3 +547,66 @@ def test_run_check_false_does_not_raise_on_nonzero_exit(
     monkeypatch.setattr(subprocess, "run", fake_run)
     result = seat._run(["tmux", "has-session", "-t", "nope"], check=False)
     assert result.returncode == 1
+
+
+# ---------- tmux target exactness (cross-session collateral guard) ----------
+#
+# Regression: tmux resolves a bare target-session by exact match, then by
+# PREFIX, then by fnmatch. A seat whose own tmux session has exited would
+# otherwise prefix-match an unrelated live session (e.g. seat "cogos" ->
+# "cogos-dogfood"), so seat_destroy would kill the operator's session and
+# seat_status would capture its pane. These assert on the real argv, since
+# the helper-level mocks used elsewhere cannot catch a bad -t argument.
+
+
+def _capture_tmux_argv(monkeypatch: pytest.MonkeyPatch, returncode: int = 0) -> list:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, returncode, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return calls
+
+
+def test_tmux_has_session_uses_exact_match_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _capture_tmux_argv(monkeypatch)
+    seat._tmux_has_session("cogos")
+    assert calls[0] == ["tmux", "has-session", "-t", "=cogos"]
+
+
+def test_tmux_kill_session_uses_exact_match_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _capture_tmux_argv(monkeypatch)
+    seat._tmux_kill_session("cogos")
+    assert calls[0] == ["tmux", "kill-session", "-t", "=cogos"]
+    # The bare name would prefix-match 'cogos-dogfood' and kill it.
+    assert "cogos" not in calls[0][3:] or calls[0][3].startswith("=")
+
+
+def test_tmux_capture_pane_uses_exact_match_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _capture_tmux_argv(monkeypatch)
+    seat._tmux_capture_pane("cogos", 50)
+    assert calls[0][:4] == ["tmux", "capture-pane", "-t", "=cogos:"]
+
+
+def test_seat_destroy_targets_only_the_exact_session(
+    seats_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end argv check: destroying a seat must not emit a bare target."""
+    home = seats_root / "cogos"
+    (home / "work").mkdir(parents=True)
+    (home / seat.SEAT_META_FILENAME).write_text("{}", encoding="utf-8")
+
+    calls = _capture_tmux_argv(monkeypatch)
+    seat.seat_destroy("cogos")
+
+    kill = [c for c in calls if c[:2] == ["tmux", "kill-session"]]
+    assert len(kill) == 1
+    assert kill[0][-1] == "=cogos"
