@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.5.0 - 2026-08-02
+
+Ten-plus merged PRs since 0.4.1. The session/handoff bridge tools now route through the kernel's own native endpoints instead of emitting to the raw event bus, channel join/leave gets a participant-type discriminant and test coverage, a new tournament/evaluation harness lands for benchmarking dispatch modes against the kernel, a sandbox-escape gap involving symlinks is closed, and the repo picks up the CI, licensing, and hygiene work a public release needs.
+
+**Bridge: kernel-native routing (v0.2):**
+- The eight `cogos_session_*` / `cogos_handoff_*` tools now shim over the kernel's `/v1/sessions/*` and `/v1/handoffs/*` routes instead of emitting directly to `/v1/bus/send`. MCP signatures and the never-raise `{"success": False, ...}` envelope are unchanged, so this is not a breaking change for callers. The racy read-then-emit claim path is replaced by an atomic server-side first-wins claim; a rejected claim now surfaces as HTTP 409 plus a `handoff.claim_rejected` event instead of a silent race. `HANDOFF_PROTOCOL.md` is updated to v0.2 to document the hybrid implementation.
+
+**Channel provider: participant type and join/leave tests:**
+- `cogos_session_register` gains an optional `participant_type` (`"agent" | "user" | "provider"`) and metadata passthrough per the channel-provider RFC. The default `"agent"` value is omitted from the wire payload, so pre-0.2.1 callers see byte-identical requests. Adds `test_channel_join.py` covering `cogos_channel_join` / `cogos_channel_leave` wire shapes, which had shipped earlier without test coverage.
+
+**Tournament and evaluation harness:**
+- New `evals/tournament/` subpackage: kernel-mediated dispatch emits trial records as `tournament.trial.v1` CogBlocks (with Merkle-rooted experiment summaries) on a dedicated bus, alongside a parallel `ChatCompletionsClient` dispatch mode for testing tool-description variants directly against LM Studio, and a Claude Code subprocess baseline target (`--dispatch-mode claude`, model parameterized between sonnet/haiku, using Claude Max OAuth with no API key).
+- A Terminal-Bench adapter (`exp-002`) reformulates 15 of 89 Terminal-Bench 2.0 tasks as knowledge-equivalent, non-bash variants, with per-target results checked into the experiment cogdoc.
+- A parametric no-tool dispatch mode (`--no-tools`) isolates model knowledge from tool-use skill in scoring.
+- Rubric primitives gain case-insensitive (`_ci`) and OR-semantics (`_any_of_ci`) content matchers, closing a class of false-fail results where a model's correct-but-differently-cased answer didn't match a lowercase expectation.
+- Tool-call evidence for Claude Code trials is now collected from the kernel's own ledger (`cog_read_tool_calls`) rather than the chat-completions response, which never populated `tool_calls` for that provider; this took the Claude Code target from 0/16 to 15/16 on the exp-001 matrix.
+- Follow-on fixes: the kernel-dispatch timeout default was raised from 60s to 240s (below a slower model's real tool-loop wall time, every kernel-mode trial was timing out); two separate bugs that hardcoded `model="sonnet"` regardless of the requested model are fixed so `--claude-model haiku` actually dispatches to haiku; and the CI/ANY_OF rubric fields are wired through `_build_case`, which had been silently dropping them.
+
+**Security:**
+- `tree()`'s directory walk descended into symlinked children without checking whether the resolved target stayed inside an authorized sandbox root, which let a symlink placed inside the workspace enumerate host filesystem structure outside the container boundary. Symlinks now resolve and re-check against the authorized roots before recursion; unauthorized targets are skipped silently, matching the existing invisible-path posture.
+- The container previously ran as root despite the CHANGELOG already claiming rootless operation. The Dockerfile now creates and switches to a dedicated `sandbox` user (uid/gid 1001) with `/workspace` ownership transferred, matching the documented posture.
+
+**CI, licensing, and repo hygiene:**
+- Added a GitHub Actions workflow (lint via ruff, tests across Python 3.10/3.11/3.12, and a build job producing wheel + sdist), `CONTRIBUTING.md`, and an MIT `LICENSE`, none of which existed despite the repo being public. A follow-up removed the `|| true` guard on the ruff steps (which had let lint failures pass silently) and fixed the violations it had been hiding; another follow-up extended the pytest target paths and installed the `evals` extra so the tournament and harness test suites, previously only running locally, run in CI too.
+- The tournament fixture set needed by `test_terminal_bench_adapter.py` lived only on the development machine's cogdoc tree; a minimal fixture set is now committed under `evals/tournament/fixtures/`, and the tournament root resolves lazily so CI can point `COG_TOURNAMENT_ROOT` at the committed fixtures instead of skipping the suite.
+- Scrubbed personal paths, a hardcoded LAN IP, and `cogos-dev`-era references from example configs, install scripts, docs, and test fixtures ahead of the public rebrand to `myrgic`, replacing them with environment-variable-driven or generic placeholder values.
+
 ## 0.4.1 — 2026-04-21
 
 Eight new bridge tools composing over the kernel's `/v1/bus/*` endpoints to deliver the session-identity + handoff substrate. Tool count goes 4 → 12. Protocol spec lands in `docs/HANDOFF_PROTOCOL.md`.
